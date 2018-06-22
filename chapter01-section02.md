@@ -92,7 +92,7 @@ public class Test {
 }
 ```
 
-### Spring中的Bean
+## Spring中的Bean
 
 >  bean 是一个被实例化，组装，并通过 Spring IoC 容器所管理的对象,是应用程序的支柱
 
@@ -104,9 +104,9 @@ public class Test {
 * 基于注解的配置（常用）
 * 基于JAVA的配置（不常用）
 
-##### 基于XML的配置元数据
+#### 基于XML的配置元数据
 
-###### 每一个bean用```<bean>```节点表示，该节点有如下常用配置属性
+##### 每一个bean用```<bean>```节点表示，该节点有如下常用配置属性
 
 * id属性：给bean指定一个名称，通过该名称可以取到bean
 
@@ -151,6 +151,50 @@ public class Test {
 ``` xml
 <bean id="helloWorld" class="lero.HelloWorld" lazy-init="true"></bean>
 <!--在使用该bean的时候，Spring容器才负责创建该对象 -->
+```
+
+* abstract属性：指定bean是否是抽象的，抽象的bean一般没有class属性，而是作为模板存在
+* parent属性:指定要继承自哪一个bean的配置（在类上可以不存在继承关系）
+
+``` xml
+<bean id="template" abstract="true">
+   <property name="message1" value="Hello"/>
+   <property name="message2" value="Hello"/>
+</bean>
+<bean id="test1" class="lero.Test1" parent="template"></bean>
+<bean id="test2" class="lero.Test2" parent="template"></bean>
+<!--test1,test2均继承自template的注入属性，相当于test1,test2也注入了message1，message2属性-->
+```
+
+* autowire属性：指定bean是否自动装配，装配的属性值有byName，byType,constructor常用
+
+``` xml
+<bean id="helloWorld" class="lero.HelloWorld" autowire="byName"></bean>
+```
+
+* autowire-candidate属性：指定是否是一个候选待装配的bean,默认为true,设为false则取消候选
+
+``` xml
+<bean id="helloWorld" class="lero.HelloWorld" autowire-candidate="false"></bean>
+<bean id="helloWorld2" class="lero.HelloWorld"></bean>
+<!--如果需要HelloWorld类型的bean的时候，helloWorld2会被装配，helloWorld则不会被装配 -->
+```
+
+* primary属性：设置自动装配byType类型，指定的首选装配bean
+
+``` xml
+<bean id="helloWorld" class="lero.HelloWorld" primary="true"></bean>
+<bean id="helloWorld2" class="lero.HelloWorld" primary="false"></bean>
+<!--
+	如果autowired是byType类型，spring根据类型查找bean，当一个bean的primary为true的，那该bean在autowired是byType时 就是首选。spring根据primary的信息就会把这个bean拿去注入。而不会在找到多个相同类型的bean时，spring因为不知道到底该注入哪个baen而抛异常
+ -->
+```
+
+* depends-on属性：表示一个bean A的实例化依靠另一个bean B的实例化，首先应该等待beanB初始化完成,如果是单例的，摧毁的时候应该先摧毁beanA
+
+```xml
+<bean id="beanA" class="lero.BeanA" depends-on="beanB" scope="singleton" ></bean>
+<bean id="beanB" class="lero.BeanB" ></bean>
 ```
 
 * factory-bean属性：指定工厂的bean
@@ -229,7 +273,7 @@ public class FruiFactory {
  <bean id="orange" class="FruiFactory" factory-method="newOrange"></bean>
 ```
 
-###### 每一个```<bean>```节点的子节点```<property>```配置,用于初始化bean的依赖(又称作setter注入，需提供setter方法)
+##### setter注入：每一个```<bean>```节点的子节点```<property>```配置,用于初始化bean的依赖(需提供setter方法)
 
 * 初始化基本数据类型和String类型配置
 * 初始化自定义类类型配置
@@ -414,4 +458,171 @@ public class Test {
     }
 }
 ```
+
+* 注入内部bean
+
+``` xml
+ <bean id="outerBean" class="...">
+      <property name="target">
+         <bean id="innerBean" class="..."/>
+      </property>
+ </bean>
+```
+
+* 注入NUll值
+
+```xml
+<bean class="TestBean">
+	<property name="email"><null/></property>
+    <!--等同于testBean.setEmali(null) -->
+</bean>
+```
+
+##### 构造器注入：每一个```<bean>```节点的子节点```<constructor-arg>```配置构造器,用于初始化bean的依赖
+
+``` java
+public class A {
+    private B b;
+    private String s;
+    private  A(B param1){
+        this.b=param1;
+    }
+    private  A(B param1,String param2 ){
+        this.b=param1;
+        this.s=param2;
+    }
+}
+```
+
+``` java
+public class B {
+}
+```
+
+> 使用name属性匹配
+
+``` xml
+<bean id="a" class="A">
+      <constructor-arg name="param1" ref="b"/>
+      <!--匹配一个参数的构造器-->
+</bean>
+<bean id="b" class="B"></bean>
+```
+
+> 使用index属性匹配,下面两个都能注入
+
+``` xml
+<bean id="a" class="A">
+      <constructor-arg index="1" value="lero"/>
+      <constructor-arg index="0" ref="b"/>
+      <!--匹配两个参数的构造器，参数的顺序为索引的顺序-->
+</bean>
+<bean id="b" class="B"></bean>
+```
+
+``` xml
+<bean id="a" class="A">
+      <constructor-arg index="0" ref="b"/>
+      <constructor-arg index="1" value="lero"/>
+      <!--匹配两个参数的构造器，参数的顺序为索引的顺序-->
+</bean>
+<bean id="b" class="B"></bean>
+```
+
+> 使用type属性匹配，下面两个都能注入，但是若构造器多个参数的类型一样，配置的顺序将影响注入的顺序，建议按照顺序配置
+
+``` xml
+<bean id="a" class="A">
+       <constructor-arg type="java.lang.String" value="lero"/>
+       <constructor-arg type="B" ref="b"/>
+       <!--匹配两个参数的构造器，参数为索引指定的顺序-->
+ </bean>
+ <bean id="b" class="B"></bean>
+```
+
+``` xml
+<bean id="a" class="A">
+       <constructor-arg type="B" ref="b"/>
+       <constructor-arg type="java.lang.String" value="lero"/>
+       <!--匹配两个参数的构造器，参数为索引指定的顺序-->
+ </bean>
+ <bean id="b" class="B"></bean>
+```
+
+> 使用默认配置，建议按构造器参数的顺序，配置constructor-arg的顺序
+
+``` xml
+<bean id="a" class="A">
+       <constructor-arg  ref="b"/>
+       <constructor-arg  value="lero"/>
+       <!--匹配两个参数的构造器，参数为索引指定的顺序-->
+ </bean>
+ <bean id="b" class="B"></bean>
+```
+
+##### 静态工厂注入（java代码参考factory-bean属性配置的案例）
+
+> 工厂方法有参数：假设更改上面的案例方法为newApple(String clazz);
+
+``` java
+ <bean id="apple" class="FruiFactory" factory-method="newApple">
+ 	<constructor-arg name="clazz" value="lero.Apple"/>
+ </bean>
+ <bean id="orange" class="FruiFactory" factory-method="newOrange">
+ 	<constructor-arg name="clazz" value="lero.Orange"/>
+ </bean>
+```
+
+##### 非静态工厂注入（java代码参考factory-bean属性配置的案例）
+
+> 工厂方法有参数：假设更改上面的案例方法为newApple(String clazz);
+
+``` xml
+ <bean id="factory" class="lero.FruiFactory"></bean>
+ <bean id="apple"  factory-bean="factory" factory-method="newApple">
+	 <constructor-arg name="clazz" value="lero.Apple"/>
+ </bean>
+ <bean id="orange" factory-bean="factory" factory-method="newOrange">
+	<constructor-arg name="clazz" value="lero.Orange"/>
+ </bean>
+```
+
+##### 基于注解的配置：
+
+* 开启支持注解自动注入（需要引入context的schema约束）
+
+``` xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       ">
+      <!--开启支持注解自动注入 -->
+       <context:annotation-config />
+</beans>
+```
+
+* @Required
+
+> 适用于bean属性setter方法，并表示受影响的bean属性必须在XML配置文件进行配置。否则，容器会抛出一个BeanInitializationException异常
+
+* @Autowired
+
+> 用在setter和构造器上只按照byType注入（如果注释属性名和bean一直，则按byName注入），用在成员变量field上，先按照byName注入，找不到则按照byType注入
+
+* @Qualifier
+
+> 如果@Autowired注入有多个类型的实现，则可指定按照bean的name过滤装配指定类型bean，配合Autowired 一起使用
+
+* @Resource
+
+> 自动装配注入顺序如下：
+>
+> 　 (1). 如果同时指定了name和type，则从Spring上下文中找到唯一匹配的bean进行装配，找不到则抛出异常;
+> 　 (2). 如果指定了name，则从上下文中查找名称（id）匹配的bean进行装配，找不到则抛出异常;
+> 　 (3). 如果指定了type，则从上下文中找到类型匹配的唯一bean进行装配，找不到或者找到多个，都会抛出异常;
+> 　 (4). 如果既没有指定name，又没有指定type，则自动按照byName方式进行装配；如果没有匹配，则回退为一个原始类型进行匹配，如果匹配则自动装配。
+> @Resource分别可以用在field、setter上，无法应用在constructor构造器上
 
